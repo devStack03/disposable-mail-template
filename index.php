@@ -11,16 +11,17 @@ extension_loaded("imap") || die('ERROR: IMAP extension not loaded. Please see th
 # load php dependencies:
 require_once './vendor/autoload.php';
 require_once './config_helper.php';
+require_once './sqlite_connector.php';
 require_once './User.php';
 require_once './imap_client.php';
 require_once './controller.php';
-
 load_config();
 
+$databaseClient = new DatabaseController($config['db_name'], $config['table_name']);
 $imapClient = new ImapClient($config['imap']['url'], $config['imap']['username'], $config['imap']['password']);
 
 if (DisplayEmailsController::matches()) {
-    DisplayEmailsController::invoke($imapClient, $config);
+    DisplayEmailsController::invoke($imapClient, $config, $databaseClient);
 } elseif (RedirectToAddressController::matches()) {
     RedirectToAddressController::invoke($imapClient, $config);
 } elseif (RedirectToRandomAddressController::matches()) {
@@ -30,7 +31,7 @@ if (DisplayEmailsController::matches()) {
 } elseif (DeleteEmailController::matches()) {
     DeleteEmailController::invoke($imapClient, $config);
 } elseif (HasNewMessagesControllerJson::matches()) {
-    HasNewMessagesControllerJson::invoke($imapClient, $config);
+    HasNewMessagesControllerJson::invoke($imapClient, $config, $databaseClient);
 } else {
     // If requesting the main site, just redirect to a new random mailbox.
     RedirectToRandomAddressController::invoke($imapClient, $config);

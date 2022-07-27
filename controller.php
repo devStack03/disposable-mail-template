@@ -28,6 +28,7 @@ class DisplayEmailsController
 
         $emails = $imapClient->get_emails($user);
         $databaseClient->insertEmailData($emails, $user->address);
+        $databaseClient->generateRssFeed($user->address);
         DisplayEmailsController::render($emails, $config, $user);
     }
 
@@ -113,6 +114,8 @@ class HasNewMessagesControllerJson
         // }
         // print_r($emails);
         $databaseClient->insertEmailData($emails, $user->address);
+        $databaseClient->generateRssFeed($user->address);
+
         HasNewMessagesControllerJson::render(count($onlyNewMailIds));
     }
 
@@ -200,7 +203,8 @@ class GenerateRSSFeedController
 
     public static function invoke(ImapClient $imapClient, array $config, DatabaseController $databaseClient) 
     {
-
+        if (!isset($_GET['address'])) return;
+        $databaseClient->generateRssFeed($_GET['address']);
     }
 }
 

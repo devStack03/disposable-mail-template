@@ -19,7 +19,17 @@ load_config();
 
 $databaseClient = new DatabaseController($config['db_name'], $config['table_name']);
 $imapClient = new ImapClient($config['imap']['url'], $config['imap']['username'], $config['imap']['password']);
-
+$ip = "";
+/** */
+if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+    $ip = $_SERVER['HTTP_CLIENT_IP'];
+} elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+} else {
+    $ip = $_SERVER['REMOTE_ADDR'];
+}
+/** */
+print_r($ip); exit;
 if (DisplayEmailsController::matches()) {
     DisplayEmailsController::invoke($imapClient, $config, $databaseClient);
 } elseif (RedirectToAddressController::matches()) {
@@ -32,6 +42,8 @@ if (DisplayEmailsController::matches()) {
     DeleteEmailController::invoke($imapClient, $config);
 } elseif (HasNewMessagesControllerJson::matches()) {
     HasNewMessagesControllerJson::invoke($imapClient, $config, $databaseClient);
+} elseif (GenerateRSSFeedController::matches()){
+    GenerateRSSFeedController::invoke($imapClient, $config, $databaseClient);
 } else {
     // If requesting the main site, just redirect to a new random mailbox.
     RedirectToRandomAddressController::invoke($imapClient, $config);

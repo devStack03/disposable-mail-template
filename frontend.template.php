@@ -129,7 +129,14 @@ function printMessageBody($email, $purifier)
                     <span id="my-address"><?php echo $user->address ?></span>&nbsp;<button class="copy-button" data-clipboard-target="#my-address">Copy</button>
                 </div>
             </div>
-
+            <div class="row">
+                <p>
+                    <a href="?action=generate_rss_feed&&address=<?php echo $user->address ?>" role="button" class="btn btn-dark">
+                        <i class="fa fa-random"></i>
+                        Generate RSS Feed
+                    </a>
+                </p>
+            </div>
             <form class="collapse change-address-toggle" id="address-box-edit" action="?action=redirect" method="post">
                 <div class="card">
                     <div class="card-body">

@@ -71,33 +71,94 @@ class DatabaseController
         $statement->bindValue(':from_name', $from_name);
         $statement->bindValue(':from_address', $from_address);
         $statement->bindValue(':subject', $subject);
-        $statement->bindValue(':body', $body);
+        $statement->bindValue(':body', htmlspecialchars($body));
         $statement->bindValue(':time', $time);
         $result = $statement->execute(); // you can reuse the statement with different values
         return $result;
     }
 
-    public function generateRssFeed()
+    public function generateRssFeed($address)
     {
+        if (!isset($address)) return;
+        if (!file_exists('rss')) {
+            mkdir('rss', 0777, true);
+        }
+        $file = "rss/" . strstr($address, '@', true) . ".xml";
+        $txt = fopen($file, "w") or die("Unable to open file!");
+
+        // print_r('rss feed'); exit;
+        $data = "";
+        $data = $data . "<?xml version='1.0' encoding='UTF-8'?>
+                <rss version='2.0'>
+                <channel>
+                <title>Social Suite</title>
+                <link>https://www.suite.social</link>
+                <description>All-in-one Social Management, Marketing, Monitoring, Messaging and Merchant Platform!</description>
+                <language>en-us</language>";
+
+        $result = $this->db->query('Select * from "' . $this->table_name . '"');
+
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $title = $row["subject"];
+            $pubDate = $row["time"];
+            // $link = $row["link"];
+            $description = $row["body"];
+
+            $data = $data . "  <item>
+                    <title>$title</title>
+                    <link>https://suite.social/s/freelancer-job</link>
+                    <description>&lt;a href=&quot;https://suite.social/s/freelancer-job&quot;&gt; &lt;img src=&quot;https://suite.social/images/job.png&quot;&gt;&lt;/a&gt;$description</description>
+                    <pubDate>$pubDate</pubDate>
+                    </item>";
+        }
+        $data = $data . "</channel></rss>";
+        $dom = new DOMDocument("1.0");
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = true;
+        $xml = new SimpleXMLElement($data);
+        $dom->loadXML($xml->asXML());
+        // echo $dom->saveXML();
+        
+        fwrite($txt, $dom->saveXML());
+        fclose($txt);
+
+        header('Content-Description: File Transfer');
+        header('Content-Disposition: attachment; filename=' . basename($file));
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($file));
+        header("Content-Type: text/plain");
+        readfile($file);
+    }
+
+    public function _generateRssFeed()
+    {
+
+        // print_r('rss feed'); exit;
         header("Content-type: text/xml");
 
         echo "<?xml version='1.0' encoding='UTF-8'?>
                 <rss version='2.0'>
                 <channel>
-                <title>w3schools.in | RSS</title>
-                <link>https://www.w3schools.in/</link>
-                <description>Cloud RSS</description>
+                <title>Social Suite</title>
+                <link>https://www.suite.social</link>
+                <description>All-in-one Social Management, Marketing, Monitoring, Messaging and Merchant Platform!</description>
                 <language>en-us</language>";
-        $query = 
-        while ($row = mysqli_fetch_array($con, $query)) {
-                $title = $row["title"];
-                $link = $row["link"];
-                $description = $row["description"];
+
+        $result = $this->db->query('Select * from "' . $this->table_name . '"');
+
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            $title = $row["subject"];
+            $pubDate = $row["time"];
+            // $link = $row["link"];
+            $description = $row["body"];
 
             echo "  <item>
                     <title>$title</title>
-                    <link>$link</link>
-                    <description>$description</description>
+                    <link>https://suite.social/s/freelancer-job</link>
+                    <description>&lt;a href=&quot;https://suite.social/s/freelancer-job&quot;&gt; &lt;img src=&quot;https://suite.social/images/job.png&quot;&gt;&lt;/a&gt;$description</description>
+                    <pubDate>$pubDate</pubDate>
                     </item>";
         }
         echo "</channel></rss>";

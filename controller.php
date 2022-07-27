@@ -191,4 +191,17 @@ class DeleteEmailController
     }
 }
 
+class GenerateRSSFeedController
+{
+    public static function matches() 
+    {
+        return ($_GET['action'] ?? null) === "generate_rss_feed" && isset($_GET['address']);
+    }
+
+    public static function invoke(ImapClient $imapClient, array $config, DatabaseController $databaseClient) 
+    {
+
+    }
+}
+
 

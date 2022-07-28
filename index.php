@@ -28,8 +28,42 @@ if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
 } else {
     $ip = $_SERVER['REMOTE_ADDR'];
 }
+$strUnique = sprintf('%u', ip2long($_SERVER['REMOTE_ADDR'])) . floor(microtime(true) * 1000);
+print_r($strUnique);
+
+function crypto_rand_secure($min, $max)
+{
+    $range = $max - $min;
+    if ($range < 1) return $min; // not so random...
+    $log = ceil(log($range, 2));
+    $bytes = (int) ($log / 8) + 1; // length in bytes
+    $bits = (int) $log + 1; // length in bits
+    $filter = (int) (1 << $bits) - 1; // set all lower bits to 1
+    do {
+        $rnd = hexdec(bin2hex(openssl_random_pseudo_bytes($bytes)));
+        $rnd = $rnd & $filter; // discard irrelevant bits
+    } while ($rnd > $range);
+    return $min + $rnd;
+}
+
+function getToken($length)
+{
+    $token = "";
+    $codeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    $codeAlphabet.= "abcdefghijklmnopqrstuvwxyz";
+    $codeAlphabet.= "0123456789";
+    $max = strlen($codeAlphabet); // edited
+
+    for ($i=0; $i < $length; $i++) {
+        $token .= $codeAlphabet[crypto_rand_secure(0, $max-1)];
+    }
+
+    return $token;
+}
+
+// echo getToken(10);
 /** */
-print_r($ip); exit;
+// print_r($ip); exit;
 if (DisplayEmailsController::matches()) {
     DisplayEmailsController::invoke($imapClient, $config, $databaseClient);
 } elseif (RedirectToAddressController::matches()) {

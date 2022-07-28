@@ -96,7 +96,7 @@ class DatabaseController
                 <description>All-in-one Social Management, Marketing, Monitoring, Messaging and Merchant Platform!</description>
                 <language>en-us</language>";
 
-        $result = $this->db->query('Select * from "' . $this->table_name . '"');
+        $result = $this->db->query('Select * from "' . $this->table_name . '" where user_address="'.SQLite3::escapeString($address).'"');
 
         while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
             $title = $row["subject"];
@@ -122,14 +122,14 @@ class DatabaseController
         fwrite($txt, $dom->saveXML());
         fclose($txt);
 
-        header('Content-Description: File Transfer');
-        header('Content-Disposition: attachment; filename=' . basename($file));
-        header('Expires: 0');
-        header('Cache-Control: must-revalidate');
-        header('Pragma: public');
-        header('Content-Length: ' . filesize($file));
-        header("Content-Type: text/plain");
-        readfile($file);
+        // header('Content-Description: File Transfer');
+        // header('Content-Disposition: attachment; filename=' . basename($file));
+        // header('Expires: 0');
+        // header('Cache-Control: must-revalidate');
+        // header('Pragma: public');
+        // header('Content-Length: ' . filesize($file));
+        // header("Content-Type: text/plain");
+        // readfile($file);
     }
 
     public function _generateRssFeed()

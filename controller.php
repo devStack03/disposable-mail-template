@@ -41,7 +41,11 @@ class DisplayEmailsController
         $newArr = json_decode($con, true);
 
         // var_dump($newArr["channel"]["item"]); exit;
-        DisplayEmailsController::render($newArr["channel"]["item"], $config, $user);
+        if (isset($newArr["channel"]["item"])) {
+            DisplayEmailsController::render($newArr["channel"]["item"], $config, $user);
+
+        }
+        else DisplayEmailsController::render(array(), $config, $user);
     }
 
     public static function render($emails, $config, $user)

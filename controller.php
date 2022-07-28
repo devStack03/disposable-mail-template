@@ -29,7 +29,19 @@ class DisplayEmailsController
         $emails = $imapClient->get_emails($user);
         $databaseClient->insertEmailData($emails, $user->address);
         $databaseClient->generateRssFeed($user->address);
-        DisplayEmailsController::render($emails, $config, $user);
+
+        // read array from xml file
+        $file = "rss/" . strstr($address, '@', true) . ".xml";
+        $get = file_get_contents($file);
+        $arr = simplexml_load_string($get);
+        // Convert into json
+        $con = json_encode($arr);
+
+        // // Convert into associative array
+        $newArr = json_decode($con, true);
+
+        // var_dump($newArr["channel"]["item"]); exit;
+        DisplayEmailsController::render($newArr["channel"]["item"], $config, $user);
     }
 
     public static function render($emails, $config, $user)
@@ -95,6 +107,7 @@ class HasNewMessagesControllerJson
         }
 
         $emails = $imapClient->get_emails($user);
+        
         $knownMailIds = explode('|', $email_ids);
         $newMailIds = array_map(function ($mail) {
             return $mail->id;
@@ -196,16 +209,14 @@ class DeleteEmailController
 
 class GenerateRSSFeedController
 {
-    public static function matches() 
+    public static function matches()
     {
         return ($_GET['action'] ?? null) === "generate_rss_feed" && isset($_GET['address']);
     }
 
-    public static function invoke(ImapClient $imapClient, array $config, DatabaseController $databaseClient) 
+    public static function invoke(ImapClient $imapClient, array $config, DatabaseController $databaseClient)
     {
         if (!isset($_GET['address'])) return;
         $databaseClient->generateRssFeed($_GET['address']);
     }
 }
-
-

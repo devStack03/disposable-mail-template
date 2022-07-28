@@ -29,7 +29,6 @@ if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
     $ip = $_SERVER['REMOTE_ADDR'];
 }
 $strUnique = sprintf('%u', ip2long($_SERVER['REMOTE_ADDR'])) . floor(microtime(true) * 1000);
-print_r($strUnique);
 
 function crypto_rand_secure($min, $max)
 {

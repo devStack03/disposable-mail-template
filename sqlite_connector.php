@@ -96,17 +96,22 @@ class DatabaseController
                 <description>All-in-one Social Management, Marketing, Monitoring, Messaging and Merchant Platform!</description>
                 <language>en-us</language>";
 
-        $result = $this->db->query('Select * from "' . $this->table_name . '" where user_address="'.SQLite3::escapeString($address).'"');
+        $result = $this->db->query('Select * from "' . $this->table_name . '" where user_address="' . SQLite3::escapeString($address) . '" ORDER BY id DESC');
 
         while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
             $title = $row["subject"];
             $pubDate = $row["time"];
-            // $link = $row["link"];
+            $email_id = $row["email_id"];
+            $from_name = $row["from_name"];
+            $from_address = $row["from_address"];
             $description = $row["body"];
 
             $data = $data . "  <item>
                     <title>$title</title>
                     <link>https://suite.social/s/freelancer-job</link>
+                    <id>$email_id</id>
+                    <name>$from_name</name>
+                    <address>$from_address</address>
                     <description>&lt;a href=&quot;https://suite.social/s/freelancer-job&quot;&gt; &lt;img src=&quot;https://suite.social/images/job.png&quot;&gt;&lt;/a&gt;$description</description>
                     <pubDate>$pubDate</pubDate>
                     </item>";
@@ -118,7 +123,7 @@ class DatabaseController
         $xml = new SimpleXMLElement($data);
         $dom->loadXML($xml->asXML());
         // echo $dom->saveXML();
-        
+
         fwrite($txt, $dom->saveXML());
         fclose($txt);
 
@@ -130,6 +135,10 @@ class DatabaseController
         // header('Content-Length: ' . filesize($file));
         // header("Content-Type: text/plain");
         // readfile($file);
+    }
+
+    public function getArrivedEmails()
+    {
     }
 
     public function _generateRssFeed()

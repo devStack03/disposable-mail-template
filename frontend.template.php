@@ -18,7 +18,7 @@ $purifier = new HTMLPurifier($purifier_config);
 \Moment\Moment::setLocale($config['locale']);
 
 $mailIds = array_map(function ($mail) {
-    return $mail->id;
+    return $mail['id'];
 }, $emails);
 $mailIdsJoinedString = filter_var(join('|', $mailIds), FILTER_SANITIZE_SPECIAL_CHARS);
 
@@ -189,9 +189,9 @@ function printMessageBody($email, $purifier)
 
                 <?php
                 foreach ($emails as $email) {
-                    $safe_email_id = filter_var($email->id, FILTER_VALIDATE_INT); ?>
+                    $safe_email_id = filter_var($email['id'], FILTER_VALIDATE_INT); ?>
 
-                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#mail-box-<?php echo $email->id ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $email->id ?>">
+                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#mail-box-<?php echo $email['id'] ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $email['id'] ?>">
 
                         <div class="media">
                             <button class="btn btn-white open-collapse-button">
@@ -201,19 +201,19 @@ function printMessageBody($email, $purifier)
 
 
                             <div class="media-body">
-                                <h6 class="list-group-item-heading"><?php echo filter_var($email->fromName, FILTER_SANITIZE_SPECIAL_CHARS) ?>
-                                    <span class="text-muted"><?php echo filter_var($email->fromAddress, FILTER_SANITIZE_SPECIAL_CHARS) ?></span>
-                                    <small class="float-right" title="<?php echo $email->date ?>"><?php echo niceDate($email->date) ?></small>
+                                <h6 class="list-group-item-heading"><?php echo filter_var($email['name'], FILTER_SANITIZE_SPECIAL_CHARS) ?>
+                                    <span class="text-muted"><?php echo filter_var($email['address'], FILTER_SANITIZE_SPECIAL_CHARS) ?></span>
+                                    <small class="float-right" title="<?php echo $email['pubDate'] ?>"><?php echo niceDate($email['pubDate']) ?></small>
                                 </h6>
                                 <p class="list-group-item-text text-truncate" style="width: 75%">
-                                    <?php echo filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS); ?>
+                                    <?php echo filter_var($email['title'], FILTER_SANITIZE_SPECIAL_CHARS); ?>
                                 </p>
                             </div>
                         </div>
                     </a>
 
 
-                    <div id="mail-box-<?php echo $email->id ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
+                    <div id="mail-box-<?php echo $email['id'] ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
                         <div class="card-body">
                             <div class="card-block email-body">
                                 <div class="float-right primary">
@@ -225,7 +225,12 @@ function printMessageBody($email, $purifier)
                                         Delete
                                     </a>
                                 </div>
-                                <?php printMessageBody($email, $purifier); ?>
+                                <?php
+                                $safeText = htmlspecialchars($email['description']);
+                                $safeText = nl2br($safeText);
+                                $safeText = \AutoLinkExtension::auto_link_text($safeText);
+                                echo $safeText;
+                                ?>
 
                             </div>
                         </div>

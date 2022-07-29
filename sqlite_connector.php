@@ -94,7 +94,8 @@ class DatabaseController
                 <title>Social Suite</title>
                 <link>https://www.suite.social</link>
                 <description>All-in-one Social Management, Marketing, Monitoring, Messaging and Merchant Platform!</description>
-                <language>en-us</language>";
+                <language>en-us</language>
+                <items>";
 
         $result = $this->db->query('Select * from "' . $this->table_name . '" where user_address="' . SQLite3::escapeString($address) . '" ORDER BY id DESC');
 
@@ -116,7 +117,7 @@ class DatabaseController
                     <pubDate>$pubDate</pubDate>
                     </item>";
         }
-        $data = $data . "</channel></rss>";
+        $data = $data . "</items></channel></rss>";
         $dom = new DOMDocument("1.0");
         $dom->preserveWhiteSpace = false;
         $dom->formatOutput = true;

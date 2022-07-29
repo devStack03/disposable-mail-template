@@ -31,19 +31,21 @@ class DisplayEmailsController
         $databaseClient->generateRssFeed($user->address);
 
         // read array from xml file
-        $file = "rss/" . strstr($address, '@', true) . ".xml";
-        if (!file_exists($file)) {
+        $file = "rss/" . strtolower(strstr($address, '@', true)) . ".xml";
+        if (file_exists($file)) {
             $get = file_get_contents($file);
-            $arr = simplexml_load_string($get);
+            $arr = simplexml_load_file($file);
             // Convert into json
             $con = json_encode($arr);
 
             // // Convert into associative array
             $newArr = json_decode($con, true);
-
-            // var_dump($newArr["channel"]["item"]); exit;
-            if (isset($newArr["channel"]["item"])) {
-                DisplayEmailsController::render($newArr["channel"]["item"], $config, $user);
+            if (isset($newArr["channel"]["items"]) && count($newArr["channel"]["items"]) > 0) {
+                $itemArray = $newArr["channel"]["items"]["item"];
+                if (array_key_exists("id", $itemArray)) {
+                    DisplayEmailsController::render(array($itemArray), $config, $user);
+                } else 
+                    DisplayEmailsController::render($newArr["channel"]["items"]["item"], $config, $user);
             } else DisplayEmailsController::render(array(), $config, $user);
         } else
             DisplayEmailsController::render(array(), $config, $user);
@@ -53,6 +55,14 @@ class DisplayEmailsController
     {
         // variables that have to be defined here for frontend template: $emails, $config
         require "frontend.template.php";
+    }
+
+    public static function xml2array($xmlObject, $out = array())
+    {
+        foreach ((array) $xmlObject as $index => $node)
+            $out[$index] = (is_object($node)) ? DisplayEmailsController::xml2array($node) : $node;
+
+        return $out;
     }
 }
 
@@ -223,5 +233,92 @@ class GenerateRSSFeedController
     {
         if (!isset($_GET['address'])) return;
         $databaseClient->generateRssFeed($_GET['address']);
+    }
+}
+
+class xml_utils
+{
+
+    /*object to array mapper */
+    public static function objectToArray($object)
+    {
+        if (!is_object($object) && !is_array($object)) {
+            return $object;
+        }
+        if (is_object($object)) {
+            $object = get_object_vars($object);
+        }
+        return array_map('objectToArray', $object);
+    }
+
+    /* xml DOM loader*/
+    public static function xml_to_array($xmlstr)
+    {
+        $doc = new DOMDocument();
+        $doc->loadXML($xmlstr);
+        return xml_utils::dom_to_array($doc->documentElement);
+    }
+
+    /* recursive XMl to array parser */
+    public static function dom_to_array($node)
+    {
+        $output = array();
+        switch ($node->nodeType) {
+            case XML_CDATA_SECTION_NODE:
+            case XML_TEXT_NODE:
+                $output = trim($node->textContent);
+                break;
+            case XML_ELEMENT_NODE:
+                for ($i = 0, $m = $node->childNodes->length; $i < $m; $i++) {
+                    $child = $node->childNodes->item($i);
+                    $v = xml_utils::dom_to_array($child);
+                    if (isset($child->tagName)) {
+                        $t = xml_utils::ConvertTypes($child->tagName);
+                        if (!isset($output[$t])) {
+                            $output[$t] = array();
+                        }
+                        $output[$t][] = $v;
+                    } elseif ($v) {
+                        $output = (string) $v;
+                    }
+                }
+                if (is_array($output)) {
+                    if ($node->attributes->length) {
+                        $a = array();
+                        foreach ($node->attributes as $attrName => $attrNode) {
+                            $a[$attrName] = xml_utils::ConvertTypes($attrNode->value);
+                        }
+                        $output['@attr'] = $a;
+                    }
+                    foreach ($output as $t => $v) {
+                        if (is_array($v) && count($v) == 1 && $t != '@attr') {
+                            $output[$t] = $v[0];
+                        }
+                    }
+                }
+                break;
+        }
+        return $output;
+    }
+
+    /* elements converter */
+    public static function ConvertTypes($org)
+    {
+        if (is_numeric($org)) {
+            $val = floatval($org);
+        } else {
+            if ($org === 'true') {
+                $val = true;
+            } else if ($org === 'false') {
+                $val = false;
+            } else {
+                if ($org === '') {
+                    $val = null;
+                } else {
+                    $val = $org;
+                }
+            }
+        }
+        return $val;
     }
 }

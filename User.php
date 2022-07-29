@@ -14,7 +14,7 @@ class User {
         $name = $word . $nr;
 
         $name = base64_encode($ip);
-
+        $name = str_replace('=','',$name);
         $domain = $domains[array_rand($domains)];
         return "$name@$domain";
     }

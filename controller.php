@@ -32,20 +32,21 @@ class DisplayEmailsController
 
         // read array from xml file
         $file = "rss/" . strstr($address, '@', true) . ".xml";
-        $get = file_get_contents($file);
-        $arr = simplexml_load_string($get);
-        // Convert into json
-        $con = json_encode($arr);
+        if (!file_exists($file)) {
+            $get = file_get_contents($file);
+            $arr = simplexml_load_string($get);
+            // Convert into json
+            $con = json_encode($arr);
 
-        // // Convert into associative array
-        $newArr = json_decode($con, true);
+            // // Convert into associative array
+            $newArr = json_decode($con, true);
 
-        // var_dump($newArr["channel"]["item"]); exit;
-        if (isset($newArr["channel"]["item"])) {
-            DisplayEmailsController::render($newArr["channel"]["item"], $config, $user);
-
-        }
-        else DisplayEmailsController::render(array(), $config, $user);
+            // var_dump($newArr["channel"]["item"]); exit;
+            if (isset($newArr["channel"]["item"])) {
+                DisplayEmailsController::render($newArr["channel"]["item"], $config, $user);
+            } else DisplayEmailsController::render(array(), $config, $user);
+        } else
+            DisplayEmailsController::render(array(), $config, $user);
     }
 
     public static function render($emails, $config, $user)
@@ -111,7 +112,7 @@ class HasNewMessagesControllerJson
         }
 
         $emails = $imapClient->get_emails($user);
-        
+
         $knownMailIds = explode('|', $email_ids);
         $newMailIds = array_map(function ($mail) {
             return $mail->id;

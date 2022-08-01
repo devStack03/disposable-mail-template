@@ -18,8 +18,9 @@ $purifier = new HTMLPurifier($purifier_config);
 \Moment\Moment::setLocale($config['locale']);
 
 $mailIds = array_map(function ($mail) {
-    return $mail['id'];
+    return $mail->id;
 }, $emails);
+
 $mailIdsJoinedString = filter_var(join('|', $mailIds), FILTER_SANITIZE_SPECIAL_CHARS);
 
 // define bigger renderings here to keep the php sections within the html short.
@@ -27,6 +28,10 @@ function niceDate($date)
 {
     $m = new \Moment\Moment($date, date_default_timezone_get());
     return $m->calendar();
+}
+
+function printMessageBodyAsHtml() {
+
 }
 
 function printMessageBody($email, $purifier)
@@ -77,7 +82,54 @@ function printMessageBody($email, $purifier)
             echo $user->address ?></title>
     <link rel="stylesheet" href="assets/spinner.css">
     <link rel="stylesheet" href="assets/custom.css">
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
 
+        * {
+            box-sizing: border-box;
+        }
+
+        .form-inline {
+            display: flex;
+            flex-flow: row wrap;
+            align-items: center;
+        }
+
+        .form-inline label {
+            margin: 5px 10px 5px 0;
+        }
+
+        .form-inline input {
+            vertical-align: middle;
+            background-color: #fff;
+            border: 1px solid #ddd;
+        }
+
+        .form-inline button {
+            padding: 10px 20px;
+            background-color: dodgerblue;
+            border: 1px solid #ddd;
+            color: white;
+            cursor: pointer;
+        }
+
+        .form-inline button:hover {
+            background-color: royalblue;
+        }
+
+        @media (max-width: 800px) {
+            .form-inline input {
+                margin: 10px 0;
+            }
+
+            .form-inline {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
     <script>
         var mailCount = <?php echo count($emails) ?>;
         setInterval(function() {
@@ -97,7 +149,7 @@ function printMessageBody($email, $purifier)
             };
             r.send();
 
-        }, 15000);
+        }, 150000);
     </script>
 
 </head>
@@ -133,50 +185,32 @@ function printMessageBody($email, $purifier)
                         <i class="fas fa-magic"></i> Reload
                     </button>
                 </div>
+                <div class="col get-new-address-col">
+                    <button type="button" class="btn btn-outline-dark" title="Reload page" <?php if (empty($rss_name)) echo "disabled";?> onclick='window.open("/rss/<?php echo $rss_name;?>","_blank")'>
+                        <i class="fas fa-magic"></i> Show RSS
+                    </button>
+                </div>
             </div>
 
-            <form class="collapse change-address-toggle" id="address-box-edit" action="?action=redirect" method="post">
-                <div class="card">
-                    <div class="card-body">
-                        <p>
-                            <a href="?action=random" role="button" class="btn btn-dark">
-                                <i class="fa fa-random"></i>
-                                Open random mailbox
-                            </a>
-                        </p>
-                        or create your own address:
-                        <div class="form-row align-items-center">
-                            <div class="col-sm">
-                                <label class="sr-only" for="inlineFormInputName">username</label>
-                                <input name="username" type="text" class="form-control" id="inlineFormInputName" placeholder="username" value="<?php echo $user->username ?>">
-                            </div>
-                            <div class="col-sm-auto my-1">
-                                <label class="sr-only" for="inlineFormInputGroupUsername">Domain</label>
-                                <div class="input-group">
-                                    <div class="input-group-prepend">
-                                        <div class="input-group-text">@</div>
-                                    </div>
-
-                                    <select class="custom-select" id="inlineFormInputGroupUsername" name="domain">
-                                        <?php
-                                        foreach ($config['domains'] as $aDomain) {
-                                            $selected = $aDomain === $user->domain ? ' selected ' : '';
-                                            print "<option value='$aDomain' $selected>$aDomain</option>";
-                                        }
-                                        ?>
-                                    </select>
-
-
-                                </div>
-                            </div>
-                            <div class="col-auto my-1">
-                                <button type="submit" class="btn btn-primary">Open mailbox</button>
-                            </div>
+            <div class="card">
+                <div class="card-body">
+                    <form class="form-inline" id="address-box-edit" action="/" method="GET">
+                        <input type="hidden" name="mode" value="filter">
+                        <input type="hidden" name="address" value="<?php echo $user->address; ?>">
+                        <select class="form-control input-group-prepend" aria-label="Default select example" name="network">
+                            <option value="" <?php if (empty($filter_network)) echo 'selected="selected"'; ?> disabled>What network</option>
+                            <option value="Dev King" <?php if ($filter_network == 'Dev King') echo 'selected="selected"'; ?>>Dev King</option>
+                            <option value="mingxi quan" <?php if ($filter_network == 'mingxi quan') echo 'selected="selected"'; ?>>mingxi quan</option>
+                            <option value="Facebook">Facebook</option>
+                        </select>
+                        <input type="text" class="form-control ml-2" placeholder="From name" name="from_name" value="<?php echo $filter_from_name; ?>">
+                        <div class="input-group-append ml-2">
+                            <button type="submit" class="btn btn-primary">Filter</button>
                         </div>
+                    </form>
 
-                    </div>
                 </div>
-            </form>
+            </div>
         </div>
     </header>
 
@@ -187,9 +221,9 @@ function printMessageBody($email, $purifier)
 
                 <?php
                 foreach ($emails as $email) {
-                    $safe_email_id = filter_var($email['id'], FILTER_VALIDATE_INT); ?>
+                    $safe_email_id = filter_var($email->id, FILTER_VALIDATE_INT); ?>
 
-                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#mail-box-<?php echo $email['id'] ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $email['id'] ?>">
+                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#mail-box-<?php echo $email->id ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $email->id ?>">
 
                         <div class="media">
                             <button class="btn btn-white open-collapse-button">
@@ -199,32 +233,33 @@ function printMessageBody($email, $purifier)
 
 
                             <div class="media-body">
-                                <h6 class="list-group-item-heading"><?php echo filter_var($email['name'], FILTER_SANITIZE_SPECIAL_CHARS) ?>
-                                    <span class="text-muted"><?php echo filter_var($email['address'], FILTER_SANITIZE_SPECIAL_CHARS) ?></span>
-                                    <small class="float-right" title="<?php echo $email['pubDate'] ?>"><?php echo niceDate($email['pubDate']) ?></small>
+                                <h6 class="list-group-item-heading"><?php echo filter_var($email->fromName, FILTER_SANITIZE_SPECIAL_CHARS) ?>
+                                    <span class="text-muted"><?php echo filter_var($email->fromAddress, FILTER_SANITIZE_SPECIAL_CHARS) ?></span>
+                                    <small class="float-right" title="<?php echo $email->date ?>"><?php echo niceDate($email->date) ?></small>
                                 </h6>
                                 <p class="list-group-item-text text-truncate" style="width: 75%">
-                                    <?php echo filter_var($email['title'], FILTER_SANITIZE_SPECIAL_CHARS); ?>
+                                    <?php echo filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS); ?>
                                 </p>
                             </div>
                         </div>
                     </a>
 
 
-                    <div id="mail-box-<?php echo $email['id'] ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
+                    <div id="mail-box-<?php echo $email->id ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
                         <div class="card-body">
                             <div class="card-block email-body">
                                 <div class="float-right primary">
-                                    <a class="btn btn-outline-primary btn-sm" download="true" role="button" href="<?php echo "?action=download_email&email_id=$safe_email_id&address=$user->address" ?>">
-                                        Download
-                                    </a>
 
+                                    <a class="btn btn-outline-success btn-sm" role="button" href="<?php echo "mailto:$email->fromAddress?subject=Re:$email->subject&body=Email%20Body%20Text"; ?>">
+                                        Reply
+                                    </a>
                                     <a class="btn btn-outline-danger btn-sm" role="button" href="<?php echo "?action=delete_email&email_id=$safe_email_id&address=$user->address" ?>">
                                         Delete
                                     </a>
                                 </div>
-                                <?php
-                                echo htmlspecialchars_decode($email["description"]);
+                                <?php 
+                                    printMessageBody($email, $purifier);
+                                    // htmlspecialchars_decode($email->textHtml);
                                 ?>
 
                             </div>
@@ -300,7 +335,7 @@ function printMessageBody($email, $purifier)
 
             <p>
                 <small>Powered by
-                    <a href="https://github.com/synox/disposable-mailbox"><strong>synox/disposable-mailbox</strong></a>
+                    <a href="#"><strong>disposable-mailbox</strong></a>
                 </small>
             </p>
         </div>
@@ -314,9 +349,9 @@ function printMessageBody($email, $purifier)
     <script src="assets/clipboard.js/clipboard.min.js"></script>
 
     <script>
-        clipboard = new ClipboardJS('[data-clipboard-target]');
+        var clipboard = new ClipboardJS('[data-clipboard-target]');
         $(function() {
-            $('[data-tooltip="tooltip"]').tooltip()
+            $('[data-tooltip="tooltip"]').tooltip();
         });
 
         /** from https://github.com/twbs/bootstrap/blob/c11132351e3e434f6d4ed72e5a418eb692c6a319/assets/js/src/application.js */

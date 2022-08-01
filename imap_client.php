@@ -14,12 +14,14 @@ class ImapClient {
      * @param $user User
      * @return array
      */
-    public function get_emails(User $user): array {
-        // Search for mails with the recipient $address in TO or CC.
-        $mailsIdsTo = imap_sort($this->mailbox->getImapStream(), SORTARRIVAL, true, SE_UID, 'TO "' . $user->address . '"');
-        $mailsIdsCc = imap_sort($this->mailbox->getImapStream(), SORTARRIVAL, true, SE_UID, 'CC "' . $user->address . '"');
-        $mail_ids = array_merge($mailsIdsTo, $mailsIdsCc);
-
+    public function get_emails(User $user, $criteria = ''): array {
+        // Search for mails with the recipient $address in TO or CC.        
+        $mailsIdsTo = imap_sort($this->mailbox->getImapStream(), SORTARRIVAL, true, SE_UID, 'TO "' . $user->address . '" '.$criteria);
+        $mailsIdsCc = imap_sort($this->mailbox->getImapStream(), SORTARRIVAL, true, SE_UID, 'CC "' . $user->address . '" "'.$criteria);
+        // $mailsIdsCc = imap_sort($this->mailbox->getImapStream(), SORTARRIVAL, true, SE_UID, $criteria);
+        $mail_ids = array_merge(is_array($mailsIdsTo) ? $mailsIdsTo : array(), is_array($mailsIdsCc) ? $mailsIdsCc : array());
+        // $mail_ids = array_merge(is_array($mailsIdsTo) ? $mailsIdsTo : array(), array());
+        // print_r($mailsIdsTo); exit;
         $emails = $this->_load_emails($mail_ids, $user);
         return $emails;
     }
@@ -74,9 +76,10 @@ class ImapClient {
         $emails = array();
         foreach ($mail_ids as $id) {
             $mail = $this->mailbox->getMail($id);
+            $emails[] = $mail;
             // imap_search also returns partials matches. The mails have to be filtered again:
             if (array_key_exists($user->address, $mail->to) || array_key_exists($user->address, $mail->cc)) {
-                $emails[] = $mail;
+                // $emails[] = $mail;
             }
         }
         return $emails;

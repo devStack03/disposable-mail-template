@@ -1,4 +1,40 @@
 <?php
+require_once './autolink.php';
+// Load HTML Purifier
+$purifier_config = HTMLPurifier_Config::createDefault();
+$purifier_config->set('HTML.Nofollow', true);
+$purifier_config->set('HTML.ForbiddenElements', array("img"));
+$purifier = new HTMLPurifier($purifier_config);
+
+function messageBody($email, $purifier)
+{
+    global $config;
+
+    // To avoid showing empty mails, first purify the html and plaintext
+    // before checking if they are empty.
+    $safeHtml = $purifier->purify($email->textHtml);
+
+    $safeText = htmlspecialchars($email->textPlain);
+    $safeText = nl2br($safeText);
+    $safeText = \AutoLinkExtension::auto_link_text($safeText);
+
+    $hasHtml = strlen(trim($safeHtml)) > 0;
+    $hasText = strlen(trim($safeText)) > 0;
+
+    if ($config['prefer_plaintext']) {
+        if ($hasText) {
+            return $safeText;
+        } else {
+            return $safeHtml;
+        }
+    } else {
+        if ($hasHtml) {
+            return $safeHtml;
+        } else {
+            return $safeText;
+        }
+    }
+}
 
 class DatabaseController
 {
@@ -38,6 +74,12 @@ class DatabaseController
 
     public function insertEmailData($emails = [], $current_user)
     {
+
+        // Load HTML Purifier
+        $purifier_config = HTMLPurifier_Config::createDefault();
+        $purifier_config->set('HTML.Nofollow', true);
+        $purifier_config->set('HTML.ForbiddenElements', array("img"));
+        $purifier = new HTMLPurifier($purifier_config);
         $this->current_user = $current_user;
 
         if (count($emails) > 0) {
@@ -48,7 +90,7 @@ class DatabaseController
                 $from_address = filter_var($email->fromAddress, FILTER_SANITIZE_SPECIAL_CHARS);
                 $time = $email->date;
                 $subject = filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS);
-                $body = $email->textPlain;
+                $body = messageBody($email, $purifier);
                 $this->insertRow($this->current_user, $email_id, $safe_email_id, $from_name, $from_address, $subject, $body, $time);
             }
         }
@@ -77,13 +119,22 @@ class DatabaseController
         return $result;
     }
 
-    public function generateRssFeed($address)
+    public function generateRssFeed($address, $emails = array(), $is_from_database = true)
     {
+
+        // Load HTML Purifier
+        $purifier_config = HTMLPurifier_Config::createDefault();
+        $purifier_config->set('HTML.Nofollow', true);
+        $purifier_config->set('HTML.ForbiddenElements', array("img"));
+        $purifier = new HTMLPurifier($purifier_config);
         if (!isset($address)) return;
         if (!file_exists('rss')) {
             mkdir('rss', 0777, true);
         }
         $file = "rss/" . strstr($address, '@', true) . ".xml";
+        if (file_exists($file)) {
+            unlink($file);
+        }
         $txt = fopen($file, "w") or die("Unable to open file!");
 
         // print_r('rss feed'); exit;
@@ -96,26 +147,48 @@ class DatabaseController
                 <description>All-in-one Social Management, Marketing, Monitoring, Messaging and Merchant Platform!</description>
                 <language>en-us</language>
                 <items>";
+        $result = array();
+        if ($is_from_database) {
+            $result = $this->db->query('Select * from "' . $this->table_name . '" where user_address="' . SQLite3::escapeString($address) . '" ORDER BY id DESC');
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+                $title = $row["subject"];
+                $pubDate = $row["time"];
+                $email_id = $row["email_id"];
+                $from_name = $row["from_name"];
+                $from_address = $row["from_address"];
+                $description = $row["body"];
 
-        $result = $this->db->query('Select * from "' . $this->table_name . '" where user_address="' . SQLite3::escapeString($address) . '" ORDER BY id DESC');
+                $data = $data . "  <item>
+                        <title>$title</title>
+                        <link>https://suite.social/s/freelancer-job</link>
+                        <id>$email_id</id>
+                        <name>$from_name</name>
+                        <address>$from_address</address>
+                        <description>$description</description>
+                        <pubDate>$pubDate</pubDate>
+                        </item>";
+            }
+        } else {
+            foreach ($emails as $email) {
+                // var_dump(htmlentities($email->textHtml));exit;
+                # code...
+                $title = filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS);
+                $pubDate = $email->date;
+                $email_id = $email->id;
+                $from_name = filter_var($email->fromName, FILTER_SANITIZE_SPECIAL_CHARS);
+                $from_address = filter_var($email->fromAddress, FILTER_SANITIZE_SPECIAL_CHARS);
+                $description = htmlspecialchars(messageBody($email, $purifier));
 
-        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-            $title = $row["subject"];
-            $pubDate = $row["time"];
-            $email_id = $row["email_id"];
-            $from_name = $row["from_name"];
-            $from_address = $row["from_address"];
-            $description = $row["body"];
-
-            $data = $data . "  <item>
-                    <title>$title</title>
-                    <link>https://suite.social/s/freelancer-job</link>
-                    <id>$email_id</id>
-                    <name>$from_name</name>
-                    <address>$from_address</address>
-                    <description>&lt;a href=&quot;https://suite.social/s/freelancer-job&quot;&gt; &lt;img src=&quot;https://suite.social/images/job.png&quot;&gt;&lt;/a&gt;$description</description>
-                    <pubDate>$pubDate</pubDate>
-                    </item>";
+                $data = $data . "  <item>
+                        <title>$title</title>
+                        <link>https://suite.social/s/freelancer-job</link>
+                        <id>$email_id</id>
+                        <name>$from_name</name>
+                        <address>$from_address</address>
+                        <description>$description</description>
+                        <pubDate>$pubDate</pubDate>
+                        </item>";
+            }
         }
         $data = $data . "</items></channel></rss>";
         $dom = new DOMDocument("1.0");

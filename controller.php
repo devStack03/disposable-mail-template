@@ -13,48 +13,82 @@ class DisplayEmailsController
 {
     public static function matches()
     {
-        return !isset($_GET['action']) && !empty($_SERVER['QUERY_STRING'] ?? '');
+        // return !isset($_GET['action']) && !empty($_SERVER['QUERY_STRING'] ?? '');
+        return !isset($_GET['action']) && !empty($_GET['address'] ?? '');
     }
 
     public static function invoke(ImapClient $imapClient, array $config, DatabaseController $databaseClient)
     {
-        $address = $_SERVER['QUERY_STRING'] ?? '';
-
+        $address = $_GET['address']?? '';
+        $filter_network = $_GET["network"] ?? '';
+        $filter_from_name = $_GET['from_name'] ?? '';
+        $action = $_GET['mode'] ?? '';
         $user = User::parseDomain($address, $config['blocked_usernames']);
         if ($user->isInvalid($config['domains'])) {
             RedirectToRandomAddressController::invoke($imapClient, $config, '');
             return;
         }
 
-        $emails = $imapClient->get_emails($user);
+        if ($action != 'filter') {
+            DisplayEmailsController::render(array(), $config, $user, false);
+            return;
+        }
+        $filter_criteria = '';
+        $is_filter_network = true;
+        if (strlen($filter_from_name) > 0) {
+            $is_filter_network = false;
+            $filter_criteria = 'FROM "'.$filter_from_name.'"';
+        } else if (strlen($filter_network)) {
+            $filter_criteria = 'FROM "'.$filter_network.' "';
+        }
+        $emails = $imapClient->get_emails($user, $filter_criteria);
+
+        if (!$is_filter_network) {
+            $new_emails = array_filter($emails, function($email) use ($filter_from_name) {
+                return $email->fromName == $filter_from_name;
+            });
+            $emails = $new_emails;
+        }
+        
         $databaseClient->insertEmailData($emails, $user->address);
-        $databaseClient->generateRssFeed($user->address);
+        $databaseClient->generateRssFeed($user->address, $emails, false);
+        $case = false;
+        if ($case) {
+            // read array from xml file
+            $file = "rss/" . strtolower(strstr($address, '@', true)) . ".xml";
+            if (file_exists($file)) {
+                $get = file_get_contents($file);
+                $arr = simplexml_load_file($file);
+                // Convert into json
+                $con = json_encode($arr);
 
-        // read array from xml file
-        $file = "rss/" . strtolower(strstr($address, '@', true)) . ".xml";
-        if (file_exists($file)) {
-            $get = file_get_contents($file);
-            $arr = simplexml_load_file($file);
-            // Convert into json
-            $con = json_encode($arr);
-
-            // // Convert into associative array
-            $newArr = json_decode($con, true);
-            if (isset($newArr["channel"]["items"]) && count($newArr["channel"]["items"]) > 0) {
-                $itemArray = $newArr["channel"]["items"]["item"];
-                if (array_key_exists("id", $itemArray)) {
-                    DisplayEmailsController::render(array($itemArray), $config, $user);
-                } else 
-                    DisplayEmailsController::render($newArr["channel"]["items"]["item"], $config, $user);
-            } else DisplayEmailsController::render(array(), $config, $user);
-        } else
-            DisplayEmailsController::render(array(), $config, $user);
+                // // Convert into associative array
+                $newArr = json_decode($con, true);
+                if (isset($newArr["channel"]["items"]) && count($newArr["channel"]["items"]) > 0) {
+                    $itemArray = $newArr["channel"]["items"]["item"];
+                    if (array_key_exists("id", $itemArray)) {
+                        DisplayEmailsController::render(array($itemArray), $config, $user, $case);
+                    } else
+                        DisplayEmailsController::render($newArr["channel"]["items"]["item"], $config, $user, $case);
+                } else DisplayEmailsController::render(array(), $config, $user, $case);
+            } else
+                DisplayEmailsController::render(array(), $config, $user, $case);
+        } else {
+            DisplayEmailsController::render($emails, $config, $user, $case, $filter_from_name, $filter_network, strstr($address, '@', true) . ".xml");
+        }
     }
 
-    public static function render($emails, $config, $user)
+    public static function render($emails, $config, $user, $option, $filter_from_name = '', $filter_network = '', $rss_name = '')
     {
         // variables that have to be defined here for frontend template: $emails, $config
-        require "frontend.template.php";
+        if ($option)
+            require "frontend.template.php";
+        else
+            require "frontend.template_2.php";
+    }
+
+    public static function rssFeedName() {
+
     }
 
     public static function xml2array($xmlObject, $out = array())
@@ -83,7 +117,7 @@ class RedirectToAddressController
 
     public static function render($address)
     {
-        header("location: ?$address");
+        header("location: ?address=$address");
     }
 }
 
@@ -141,8 +175,8 @@ class HasNewMessagesControllerJson
         //         unset($email);
         // }
         // print_r($emails);
-        $databaseClient->insertEmailData($emails, $user->address);
-        $databaseClient->generateRssFeed($user->address);
+        // $databaseClient->insertEmailData($emails, $user->address);
+        // $databaseClient->generateRssFeed($user->address);
 
         HasNewMessagesControllerJson::render(count($onlyNewMailIds));
     }

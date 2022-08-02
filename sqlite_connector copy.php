@@ -78,7 +78,6 @@ class DatabaseController
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "user_address" VARCHAR,
             "panel_name" VARCHAR,
-            UNIQUE("panel_name")
         )');
     }
 
@@ -90,19 +89,7 @@ class DatabaseController
         return $result;
     }
 
-    public function lastInsertedId() {
-        return $this->db->lastInsertRowID();
-    }
-
-    public function getPanelIdWithPanelName($panel_name) {
-        $result = $this->db->querySingle('Select id from  panels  where panel_name="' . SQLite3::escapeString($panel_name) . '"');
-        print_r('Select id from  panels  where panel_name="' . SQLite3::escapeString($panel_name) . '"');
-        if ($result > 0) return $result;
-        else 
-        return 0;
-    }
-
-    public function insertEmailData($emails = [], $current_user, $panel_id = 0)
+    public function insertEmailData($emails = [], $current_user)
     {
 
         // Load HTML Purifier
@@ -121,7 +108,7 @@ class DatabaseController
                 $time = $email->date;
                 $subject = filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS);
                 $body = messageBody($email, $purifier);
-                $this->insertRow($this->current_user, $email_id, $safe_email_id, $from_name, $from_address, $subject, $body, $time, $panel_id);
+                $this->insertRow($this->current_user, $email_id, $safe_email_id, $from_name, $from_address, $subject, $body, $time);
             }
         }
     }
@@ -134,10 +121,9 @@ class DatabaseController
         $from_address,
         $subject,
         $body,
-        $time,
-        $panel_id
+        $time
     ) {
-        $statement = $this->db->prepare('INSERT OR IGNORE INTO "' . $this->table_name . '" ("user_address", "email_id", "safe_email_id", "from_name", "from_address", "subject","body", "time", "panel_id") VALUES (:uaddress, :email_id, :safe_email_id, :from_name, :from_address, :subject, :body, :time, :panel_id)');
+        $statement = $this->db->prepare('INSERT OR IGNORE INTO "' . $this->table_name . '" ("user_address", "email_id", "safe_email_id", "from_name", "from_address", "subject","body", "time") VALUES (:uaddress, :email_id, :safe_email_id, :from_name, :from_address, :subject, :body, :time)');
         $statement->bindValue(':uaddress', $user_address);
         $statement->bindValue(':email_id', $email_id);
         $statement->bindValue(':safe_email_id', $safe_email_id);
@@ -146,12 +132,11 @@ class DatabaseController
         $statement->bindValue(':subject', $subject);
         $statement->bindValue(':body', htmlspecialchars($body));
         $statement->bindValue(':time', $time);
-        $statement->bindValue(':panel_id', $panel_id);
         $result = $statement->execute(); // you can reuse the statement with different values
         return $result;
     }
 
-    public function generateRssFeed($address, $emails = array(), $is_from_database = true, $panel_id = 0)
+    public function generateRssFeed($address, $emails = array(), $is_from_database = true)
     {
 
         // Load HTML Purifier

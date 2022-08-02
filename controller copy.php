@@ -45,24 +45,7 @@ class DisplayEmailsController
             $panel_name = $filter_network;
             $filter_criteria = 'FROM "'.$filter_network.' "';
         }
-        // first find existing panel
-        $panel_id = 0;
-        if ($id = $databaseClient->getPanelIdWithPanelName($panel_name)) 
-        {
-            $panel_id = $id;
-        } else { // insert new panel
-            if (!($databaseClient->insertPanelData($panel_name, $user->address))) {
-                DisplayEmailsController::render(array(), $config, $user, false);
-                return;
-            }
-            $inserted_panel_id = $databaseClient->lastInsertedId();
-            if ($inserted_panel_id == 0) {
-                DisplayEmailsController::render(array(), $config, $user, false);
-                return;
-            }
-            $panel_id = $inserted_panel_id;
-        }
-                
+
         $emails = $imapClient->get_emails($user, $filter_criteria);
 
         if (!$is_filter_network) {
@@ -71,8 +54,9 @@ class DisplayEmailsController
             });
             $emails = $new_emails;
         }
-        $databaseClient->insertEmailData($emails, $user->address, $panel_id);
-        $databaseClient->generateRssFeed($user->address, $emails, false, $panel_id);
+        
+        $databaseClient->insertEmailData($emails, $user->address);
+        $databaseClient->generateRssFeed($user->address, $emails, false);
 
         $case = false;
 

@@ -19,7 +19,7 @@ $purifier = new HTMLPurifier($purifier_config);
 
 $mailIds = array_map(function ($mail) {
     return $mail->id;
-}, $emails ?? array());
+}, $emails);
 
 $mailIdsJoinedString = filter_var(join('|', $mailIds), FILTER_SANITIZE_SPECIAL_CHARS);
 
@@ -78,7 +78,7 @@ function printMessageBody($email, $purifier)
     <link rel="stylesheet" href="assets/bootstrap/4.1.1/bootstrap.min.css">
     <link rel="stylesheet" href="assets/fontawesome/v5.0.13/all.css">
     <title><?php
-            echo $emails ?? array() ? "(" . count($emails ?? []) . ") " : "";
+            echo $emails ? "(" . count($emails) . ") " : "";
             echo $user->address ?></title>
     <link rel="stylesheet" href="assets/spinner.css">
     <link rel="stylesheet" href="assets/custom.css">
@@ -131,7 +131,7 @@ function printMessageBody($email, $purifier)
         }
     </style>
     <script>
-        var mailCount = <?php echo count($emails ?? array()); ?>;
+        var mailCount = <?php echo count($emails) ?>;
 
         function handleAdd() {
 
@@ -189,6 +189,11 @@ function printMessageBody($email, $purifier)
                         <i class="fas fa-magic"></i> Reload
                     </button>
                 </div>
+                <div class="col get-new-address-col">
+                    <button type="button" class="btn btn-outline-dark" title="Reload page" <?php if (empty($rss_name)) echo "disabled"; ?> onclick='window.open("/rss/<?php echo $rss_name; ?>","_blank")'>
+                        <i class="fas fa-magic"></i> Show RSS
+                    </button>
+                </div>
             </div>
 
             <div class="card">
@@ -196,30 +201,27 @@ function printMessageBody($email, $purifier)
                     <form class="form-inline" id="address-box-edit" action="/" method="GET">
                         <input type="hidden" name="mode" value="add_filter">
                         <input type="hidden" name="address" value="<?php echo $user->address; ?>">
-                        <select class="form-control input-group-prepend mr-2" aria-label="Default select example" name="network">
-                            <option value="" <?php if (empty($filter_network ?? '')) echo 'selected="selected"'; ?> disabled>What network</option>
-                            <option value="Dev King" <?php if ($filter_network ?? '' == 'Dev King') echo 'selected="selected"'; ?>>Dev King</option>
-                            <option value="mingxi quan" <?php if ($filter_network ?? '' == 'mingxi quan') echo 'selected="selected"'; ?>>mingxi quan</option>
+                        <select class="form-control input-group-prepend" aria-label="Default select example" name="network">
+                            <option value="" <?php if (empty($filter_network)) echo 'selected="selected"'; ?> disabled>What network</option>
+                            <option value="Dev King" <?php if ($filter_network == 'Dev King') echo 'selected="selected"'; ?>>Dev King</option>
+                            <option value="mingxi quan" <?php if ($filter_network == 'mingxi quan') echo 'selected="selected"'; ?>>mingxi quan</option>
                             <option value="Facebook">Facebook</option>
                         </select>
-                        <input type="text" class="form-control" placeholder="From name" name="from_name" value="<?php echo $filter_from_name ?? ''; ?>">
+                        <input type="text" class="form-control ml-2" placeholder="From name" name="from_name" value="<?php echo $filter_from_name; ?>">
                         <div class="input-group-append ml-2">
                             <button type="submit" class="btn btn-primary">Add</button>
                         </div>
                     </form>
                     <div class="pannel-group">
                         <p>Your Panels:</p>
-                        <?php
-                        foreach ($panels as $_panel) {
-                            $panel = (object)$_panel;
-                        ?>
-                            <div class="p-1">
-                                <span class="badge badge-secondary"><?php echo $panel->panel_name; ?></span>
-                                <a role="button" class="btn btn-outline-dark btn-sm" href="<?php echo "?action=delete_panel&panel_id=$$panel->id&address=$user->address" ?>">Delete</a>
-                            </div>
-                        <?php
-                        }
-                        ?>
+                        <div class="p-1"> 
+                            <span class="badge badge-secondary">Dev King</span>
+                            <button type="button" class="btn btn-outline-warning btn-sm">Delete</button>
+                        </div>
+                        <div class="p-1"> 
+                            <span class="badge badge-secondary">mingxi quan</span>
+                            <button type="button" class="btn btn-outline-warning btn-sm">Delete</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -232,11 +234,10 @@ function printMessageBody($email, $purifier)
             <div id="email-list" class="list-group">
 
                 <?php
-                foreach ($panels ?? array() as $panel) {
-                    $panel_id = filter_var($panel->id, FILTER_VALIDATE_INT);
-                ?>
+                foreach ($emails as $email) {
+                    $safe_email_id = filter_var($email->id, FILTER_VALIDATE_INT); ?>
 
-                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#panel-box-<?php echo $panel->id ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $panel->id ?>">
+                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#mail-box-<?php echo $email->id ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $email->id ?>">
 
                         <div class="media">
                             <button class="btn btn-white open-collapse-button">
@@ -246,81 +247,43 @@ function printMessageBody($email, $purifier)
 
 
                             <div class="media-body">
-                                <h6 class="list-group-item-heading"><?php echo filter_var($panel->panel_name, FILTER_SANITIZE_SPECIAL_CHARS) ?>
-                                    <span class="text-muted">&nbsp;</span>
-                                    <button type="button" class="float-right btn btn-outline-success btn-sm" title="Show RSS Feed" onclick='window.open("/rss/<?php echo strtolower(strstr($user->address, "@", true)) . "_" . $panel->id . ".xml"; ?>","_blank")'>
-                                        Show RSS
-                                    </button>
+                                <h6 class="list-group-item-heading"><?php echo filter_var($email->fromName, FILTER_SANITIZE_SPECIAL_CHARS) ?>
+                                    <span class="text-muted"><?php echo filter_var($email->fromAddress, FILTER_SANITIZE_SPECIAL_CHARS) ?></span>
+                                    <small class="float-right" title="<?php echo $email->date ?>"><?php echo niceDate($email->date) ?></small>
                                 </h6>
                                 <p class="list-group-item-text text-truncate" style="width: 75%">
-                                    <?php echo count($panel->emails); ?> emails
+                                    <?php echo filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS); ?>
                                 </p>
                             </div>
                         </div>
                     </a>
 
-                    <div id="panel-box-<?php echo $panel->id ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
+
+                    <div id="mail-box-<?php echo $email->id ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
                         <div class="card-body">
                             <div class="card-block email-body">
-                                <?php
-                                foreach ($panel->emails as $_email) {
-                                    # code...
-                                    $email = $_email;
-                                ?>
-                                    <a class="list-group-item list-group-item-action email-list-item" data-toggle="collapse" href="#mail-box-<?php echo $email->id ?>" role="button" aria-expanded="false" aria-controls="mail-box-<?php echo $email->id ?>">
+                                <div class="float-right primary">
 
-                                        <div class="media">
-                                            <button class="btn btn-white open-collapse-button">
-                                                <i class="fas fa-caret-right expand-button-closed"></i>
-                                                <i class="fas fa-caret-down expand-button-opened"></i>
-                                            </button>
-
-
-                                            <div class="media-body">
-                                                <h6 class="list-group-item-heading"><?php echo filter_var($email->fromName, FILTER_SANITIZE_SPECIAL_CHARS) ?>
-                                                    <span class="text-muted"><?php echo filter_var($email->fromAddress, FILTER_SANITIZE_SPECIAL_CHARS) ?></span>
-                                                    <small class="float-right" title="<?php echo $email->date ?>"><?php echo niceDate($email->date) ?></small>
-                                                </h6>
-                                                <p class="list-group-item-text text-truncate" style="width: 75%">
-                                                    <?php echo filter_var($email->subject, FILTER_SANITIZE_SPECIAL_CHARS); ?>
-                                                </p>
-                                            </div>
-                                        </div>
+                                    <a class="btn btn-outline-success btn-sm" role="button" href="<?php echo "mailto:$email->fromAddress?subject=Re:$email->subject&body=Email%20Body%20Text"; ?>">
+                                        Reply
                                     </a>
-
-
-                                    <div id="mail-box-<?php echo $email->id ?>" role="tabpanel" aria-labelledby="headingCollapse1" class="card-collapse collapse" aria-expanded="true">
-                                        <div class="card-body">
-                                            <div class="card-block email-body">
-                                                <div class="float-right primary">
-
-                                                    <a class="btn btn-outline-success btn-sm" role="button" href="<?php echo "mailto:$email->fromAddress?subject=Re:$email->subject&body=Email%20Body%20Text"; ?>">
-                                                        Reply
-                                                    </a>
-                                                    <a class="btn btn-outline-danger btn-sm" role="button" href="<?php echo "?action=delete_email&email_id=$safe_email_id&address=$user->address" ?>">
-                                                        Delete
-                                                    </a>
-                                                </div>
-                                                <?php
-                                                printMessageBody($email, $purifier);
-                                                // htmlspecialchars_decode($email->textHtml);
-                                                ?>
-
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <a class="btn btn-outline-danger btn-sm" role="button" href="<?php echo "?action=delete_email&email_id=$safe_email_id&address=$user->address" ?>">
+                                        Delete
+                                    </a>
+                                </div>
                                 <?php
-                                }
+                                printMessageBody($email, $purifier);
+                                // htmlspecialchars_decode($email->textHtml);
                                 ?>
+
                             </div>
                         </div>
                     </div>
-
                 <?php
                 } ?>
 
                 <?php
-                if (empty($panels ?? [])) {
+                if (empty($emails)) {
                 ?>
                     <div id="empty-mailbox">
                         <p>The mailbox is empty. Checking for new emails automatically. </p>

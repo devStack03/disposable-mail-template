@@ -78,14 +78,16 @@ class DatabaseController
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "user_address" VARCHAR,
             "panel_name" VARCHAR,
+            "is_network" INTEGER,
             UNIQUE("panel_name")
         )');
     }
 
-    public function insertPanelData($filter, $current_user) {
-        $statement = $this->db->prepare('INSERT OR IGNORE INTO panels ("user_address", "panel_name") VALUES (:uaddress, :panel_name)');
+    public function insertPanelData($filter, $current_user, $is_network) {
+        $statement = $this->db->prepare('INSERT OR IGNORE INTO panels ("user_address", "panel_name", "is_network") VALUES (:uaddress, :panel_name, :is_network)');
         $statement->bindValue(':uaddress', $current_user);
         $statement->bindValue(':panel_name', $filter);
+        $statement->bindValue(':is_network', $is_network);
         $result = $statement->execute(); // you can reuse the statement with different values
         return $result;
     }
@@ -96,10 +98,45 @@ class DatabaseController
 
     public function getPanelIdWithPanelName($panel_name) {
         $result = $this->db->querySingle('Select id from  panels  where panel_name="' . SQLite3::escapeString($panel_name) . '"');
-        print_r('Select id from  panels  where panel_name="' . SQLite3::escapeString($panel_name) . '"');
         if ($result > 0) return $result;
         else 
         return 0;
+    }
+
+    public function getAllPanelsWithUser($user_address) {
+        $result = $this->db->query('SELECT * FROM panels  WHERE panels.user_address = "'.SQLite3::escapeString($user_address).'"');
+        $array = array();
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            # code...
+            $array[] = $row;
+        }
+        return $array;
+    }
+
+    public function getEmailsOfPanelsWithUser($user_address) {
+        $result = $this->db->query('SELECT count(emails.id) as count, panels.* FROM panels LEFT JOIN emails on panels.id = emails.panel_id WHERE panels.user_address = "'.SQLite3::escapeString($user_address).'" GROUP BY panels.id');
+        $array = array();
+        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            # code...
+            $array[] = $row;
+        }
+        return $array;
+        //SELECT emails.*,  panels.panel_name as panel_name, panels.id as panel_id FROM emails INNER JOIN panels on panels.id = emails.panel_id WHERE panels.user_address = "moflougs62@venlocal.com"
+    }
+
+    public function deletePanel($panel_id, $user) {
+        $statement = $this->db->prepare("DELETE FROM panels WHERE id=:panel_id");
+        $statement->bindValue(':panel_id', $panel_id);
+        $result = $statement->execute();
+        if ($result) $this->deleteAssociatedEmails($panel_id, $user);
+        return $result;        
+    }
+
+    public function deleteAssociatedEmails($panel_id, $user) {
+        $statement = $this->db->prepare("DELETE FROM emails WHERE panel_id=:panel_id");
+        $statement->bindValue(':panel_id', $panel_id);
+        $result = $statement->execute();
+        return $result;
     }
 
     public function insertEmailData($emails = [], $current_user, $panel_id = 0)
@@ -163,7 +200,7 @@ class DatabaseController
         if (!file_exists('rss')) {
             mkdir('rss', 0777, true);
         }
-        $file = "rss/" . strstr($address, '@', true) . ".xml";
+        $file = "rss/" . strstr($address, '@', true) . "_$panel_id.xml";
         if (file_exists($file)) {
             unlink($file);
         }

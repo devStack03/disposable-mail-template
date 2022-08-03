@@ -104,7 +104,6 @@ function printMessageBody($email, $purifier)
 
 <body>
 
-
     <div id="new-content-avalable">
         <div class="alert alert-info alert-fixed" role="alert">
             <strong>New emails</strong> have arrived.

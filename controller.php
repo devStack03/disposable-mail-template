@@ -1,5 +1,7 @@
 <?php
 
+use DisplayEmailsController as GlobalDisplayEmailsController;
+
 require_once './imap_client.php';
 require_once './sqlite_connector.php';
 
@@ -7,6 +9,10 @@ function render_error($status, $msg)
 {
     @http_response_code($status);
     die("{'result': 'error', 'error': '$msg'}");
+}
+
+class AddPanelController
+{
 }
 
 class DisplayEmailsController
@@ -19,7 +25,7 @@ class DisplayEmailsController
 
     public static function invoke(ImapClient $imapClient, array $config, DatabaseController $databaseClient)
     {
-        $address = $_GET['address']?? '';
+        $address = $_GET['address'] ?? '';
         $filter_network = $_GET["network"] ?? '';
         $filter_from_name = $_GET['from_name'] ?? '';
         $action = $_GET['mode'] ?? '';
@@ -30,7 +36,8 @@ class DisplayEmailsController
         }
 
         if ($action != 'add_filter') {
-            DisplayEmailsController::render(array(), $config, $user, false);
+            DisplayEmailsController::initialLoad($imapClient, $databaseClient, $config, $user);
+            // DisplayEmailsController::render(array(), $config, $user, false);
             return;
         }
 
@@ -40,21 +47,17 @@ class DisplayEmailsController
         if (strlen($filter_from_name) > 0) {
             $is_filter_network = false;
             $panel_name = $filter_from_name;
-            $filter_criteria = 'FROM "'.$filter_from_name.'"';
+            $filter_criteria = 'FROM "' . $filter_from_name . '"';
         } else if (strlen($filter_network)) {
             $panel_name = $filter_network;
-            $filter_criteria = 'FROM "'.$filter_network.' "';
+            $filter_criteria = 'FROM "' . $filter_network . ' "';
         }
         // first find existing panel
         $panel_id = 0;
-        if ($id = $databaseClient->getPanelIdWithPanelName($panel_name)) 
-        {
+        if ($id = $databaseClient->getPanelIdWithPanelName($panel_name)) {
             $panel_id = $id;
         } else { // insert new panel
-            if (!($databaseClient->insertPanelData($panel_name, $user->address))) {
-                DisplayEmailsController::render(array(), $config, $user, false);
-                return;
-            }
+            $databaseClient->insertPanelData($panel_name, $user->address, $is_filter_network);
             $inserted_panel_id = $databaseClient->lastInsertedId();
             if ($inserted_panel_id == 0) {
                 DisplayEmailsController::render(array(), $config, $user, false);
@@ -62,20 +65,23 @@ class DisplayEmailsController
             }
             $panel_id = $inserted_panel_id;
         }
-                
+
         $emails = $imapClient->get_emails($user, $filter_criteria);
 
         if (!$is_filter_network) {
-            $new_emails = array_filter($emails, function($email) use ($filter_from_name) {
+            $new_emails = array_filter($emails, function ($email) use ($filter_from_name) {
                 return $email->fromName == $filter_from_name;
             });
             $emails = $new_emails;
         }
+        // insert emails into the database : not overwrite , skip for existing emai id
         $databaseClient->insertEmailData($emails, $user->address, $panel_id);
+        // generate rss feed from database or direct emails from gmail
         $databaseClient->generateRssFeed($user->address, $emails, false, $panel_id);
-
+        DisplayEmailsController::initialLoad($imapClient, $databaseClient, $config, $user);
+        // get all panel emails from the database ?
         $case = false;
-
+        /*
         if ($case) {
             // read array from xml file
             $file = "rss/" . strtolower(strstr($address, '@', true)) . ".xml";
@@ -99,6 +105,46 @@ class DisplayEmailsController
         } else {
             DisplayEmailsController::render($emails, $config, $user, $case, $filter_from_name, $filter_network, strstr($address, '@', true) . ".xml");
         }
+        */
+    }
+
+    public static function initialLoad($imapClient, $databaseClient, $config, $user)
+    {
+
+        $panels = $databaseClient->getEmailsOfPanelsWithUser($user->address);
+        
+        // get emails from sqlite database when initial rendering
+        $new_panels = array();
+        foreach ($panels as $_panel) {
+            # code...
+            $panel = (object)$_panel;
+            $filter_criteria = '';
+            $is_filter_network = $panel->is_network;
+            $filter_criteria = 'FROM "' . $panel->panel_name . '"';
+
+            $emails = $imapClient->get_emails($user, $filter_criteria);
+            if (!$is_filter_network) {
+                $new_emails = array_filter($emails, function ($email) use ($panel) {
+                    return $email->fromName == $panel->panel_name;
+                });
+                $emails = $new_emails;
+            }
+
+            $panel->emails = $emails ?? [];
+            // insert emails into the database : not overwrite , skip for existing emai id
+            $databaseClient->insertEmailData($emails, $user->address, $panel->id);
+            // generate rss feed from database or direct emails from gmail
+            $databaseClient->generateRssFeed($user->address, $emails, false, $panel->id);
+            $new_panels[] = $panel;
+        }
+
+        DisplayEmailsController::_render($new_panels, $config, $user);
+    }
+
+    public static function _render($panels, $config, $user)
+    {
+        // variables that have to be defined here for frontend template: $emails, $config
+        require "frontend.template_2.php";
     }
 
     public static function render($emails, $config, $user, $option, $filter_from_name = '', $filter_network = '', $rss_name = '')
@@ -110,8 +156,8 @@ class DisplayEmailsController
             require "frontend.template_2.php";
     }
 
-    public static function rssFeedName() {
-
+    public static function rssFeedName()
+    {
     }
 
     public static function xml2array($xmlObject, $out = array())
@@ -272,6 +318,35 @@ class DeleteEmailController
 
         $delete_email_id = filter_var($email_id, FILTER_SANITIZE_NUMBER_INT);
         if ($imapClient->delete_email($delete_email_id, $user)) {
+            RedirectToAddressController::render($address);
+        } else {
+            render_error(404, 'delete error: invalid username/mailid combination');
+        }
+    }
+}
+
+class DeletePanelController
+{
+    public static function matches()
+    {
+        return ($_GET['action'] ?? null) === "delete_panel"
+            && isset($_GET['panel_id'])
+            && isset($_GET['address']);
+    }
+
+    public static function invoke(ImapClient $imapClient, DatabaseController $databaseClient, array $config)
+    {
+        $panel_id = $_GET['panel_id'];
+        $address = $_GET['address'];
+
+        $user = User::parseDomain($address, $config['blocked_usernames']);
+        if ($user->isInvalid($config['domains'])) {
+            RedirectToRandomAddressController::invoke($imapClient, $config, '');
+            return;
+        }
+
+        $delete_panel_id = filter_var($panel_id, FILTER_SANITIZE_NUMBER_INT);
+        if ($databaseClient->deletePanel($delete_panel_id, $user)) {
             RedirectToAddressController::render($address);
         } else {
             render_error(404, 'delete error: invalid username/mailid combination');

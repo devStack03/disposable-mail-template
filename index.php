@@ -43,6 +43,8 @@ if (DisplayEmailsController::matches()) {
     HasNewMessagesControllerJson::invoke($imapClient, $config, $databaseClient);
 } elseif (GenerateRSSFeedController::matches()){
     GenerateRSSFeedController::invoke($imapClient, $config, $databaseClient);
+} elseif (DeletePanelController::matches()){
+    DeletePanelController::invoke($imapClient, $databaseClient, $config);
 } else {
     // If requesting the main site, just redirect to a new random mailbox.
     RedirectToRandomAddressController::invoke($imapClient, $config, $ip);

@@ -248,7 +248,7 @@ function printMessageBody($email, $purifier)
                             <div class="media-body">
                                 <h6 class="list-group-item-heading"><?php echo filter_var($panel->panel_name, FILTER_SANITIZE_SPECIAL_CHARS) ?>
                                     <span class="text-muted">&nbsp;</span>
-                                    <button type="button" class="float-right btn btn-outline-success btn-sm" title="Show RSS Feed" onclick='window.open("/rss/<?php echo strtolower(strstr($user->address, "@", true)) . "_" . $panel->id . ".xml"; ?>","_blank")'>
+                                    <button type="button" class="float-right btn btn-outline-success btn-sm" title="Show RSS Feed" onclick='window.open("/email/rss/<?php echo strtolower(strstr($user->address, "@", true)) . "_" . $panel->id . ".xml"; ?>","_blank")'>
                                         Show RSS
                                     </button>
                                 </h6>

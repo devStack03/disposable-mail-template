@@ -54,7 +54,7 @@ class DisplayEmailsController
         }
         // first find existing panel
         $panel_id = 0;
-        if ($id = $databaseClient->getPanelIdWithPanelName($panel_name)) {
+        if ($id = $databaseClient->getPanelIdWithPanelName($panel_name, $user->address)) {
             $panel_id = $id;
         } else { // insert new panel
             $databaseClient->insertPanelData($panel_name, $user->address, $is_filter_network);

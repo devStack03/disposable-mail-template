@@ -78,8 +78,7 @@ class DatabaseController
             "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             "user_address" VARCHAR,
             "panel_name" VARCHAR,
-            "is_network" INTEGER,
-            UNIQUE("panel_name")
+            "is_network" INTEGER
         )');
     }
 
@@ -96,8 +95,8 @@ class DatabaseController
         return $this->db->lastInsertRowID();
     }
 
-    public function getPanelIdWithPanelName($panel_name) {
-        $result = $this->db->querySingle('Select id from  panels  where panel_name="' . SQLite3::escapeString($panel_name) . '"');
+    public function getPanelIdWithPanelName($panel_name, $user_address) {
+        $result = $this->db->querySingle('Select id from  panels  where panel_name="' . SQLite3::escapeString($panel_name) . '" AND user_address="'.$user_address.'"');
         if ($result > 0) return $result;
         else 
         return 0;
